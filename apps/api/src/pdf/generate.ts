@@ -1,5 +1,9 @@
 import PDFDocument = require('pdfkit');
 
+// When using `import = require(...)`, the imported symbol is a runtime value.
+// Use InstanceType<typeof PDFDocument> for proper typing of the document instance.
+type Doc = InstanceType<typeof PDFDocument>;
+
 type Tenant = {
   regNumber: string;
   name: string;
@@ -27,7 +31,7 @@ function toIsoDate(d: Date) {
   }
 }
 
-function bufferFromDoc(doc: PDFDocument): Promise<Buffer> {
+function bufferFromDoc(doc: Doc): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -37,7 +41,7 @@ function bufferFromDoc(doc: PDFDocument): Promise<Buffer> {
   });
 }
 
-function header(doc: PDFDocument, title: string) {
+function header(doc: Doc, title: string) {
   doc.fontSize(18).text(title, { align: 'left' });
   doc.moveDown(0.5);
   doc.fontSize(10).fillColor('#444').text(`Generated: ${toIsoDate(new Date())}`);
@@ -45,7 +49,7 @@ function header(doc: PDFDocument, title: string) {
   doc.moveDown(1);
 }
 
-function block(doc: PDFDocument, caption: string) {
+function block(doc: Doc, caption: string) {
   doc.fontSize(12).text(caption);
   doc.moveDown(0.25);
   doc.moveTo(doc.x, doc.y).lineTo(570, doc.y).strokeColor('#ddd').stroke();
@@ -53,7 +57,7 @@ function block(doc: PDFDocument, caption: string) {
   doc.moveDown(0.5);
 }
 
-function kv(doc: PDFDocument, k: string, v: string) {
+function kv(doc: Doc, k: string, v: string) {
   doc.fontSize(10).fillColor('#333').text(k, { continued: true, width: 170 });
   doc.fillColor('#000').text(v || '—');
 }
