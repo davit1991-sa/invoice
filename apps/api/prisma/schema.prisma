@@ -91,6 +91,7 @@ model Tenant {
   clients       Client[]
   invoices      Invoice[]
   acts          CompareAct[]
+  paymentIntents PaymentIntent[]
   refreshTokens RefreshToken[]
   otps          OtpCode[]
   subscription  Subscription?
