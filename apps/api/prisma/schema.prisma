@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  PERSON
+  LLC
+  IE
+  OTHER
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+model Tenant {
+  id            String      @id @default(cuid())
+  accountType   AccountType
+  regNumber     String      @unique // personal number / taxpayer id
+  name          String
+  legalAddress  String
+  email         String      @unique
+  phone         String      @unique
+  iban          String
+  isVatPayer    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  clients       Client[]
+  invoices      Invoice[]
+  acts          CompareAct[]
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  taxPayerId  String
+  name        String
+  address     String?
+  email       String?
+  phone       String?
+  iban        String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoices    Invoice[]
+  acts        CompareAct[]
+
+  @@index([tenantId])
+  @@unique([tenantId, taxPayerId])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  invoiceNumber String
+  purpose       String
+  amountNet     Decimal   @db.Decimal(18, 2)
+  vatAmount     Decimal   @db.Decimal(18, 2)
+  amountGross   Decimal   @db.Decimal(18, 2)
+  currency      String    @default("GEL")
+
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime
+  status        DocStatus @default(DRAFT)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, invoiceNumber])
+}
+
+model CompareAct {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  actNumber   String
+  purpose     String
+  amount      Decimal   @db.Decimal(18, 2)
+  currency    String    @default("GEL")
+
+  issueDate   DateTime  @default(now())
+  dueDate     DateTime
+  status      DocStatus @default(DRAFT)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, actNumber])
+}
+
+model Subscription {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  planCode    String   // PLAN_100_UNLIMITED_DOCS_NO_CLIENTS, PLAN_250_UNLIMITED_ALL, PLAN_20_5DOCS
+  status      String   // ACTIVE, PAST_DUE, CANCELED
+  validFrom   DateTime
+  validTo     DateTime
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FreeTrialIP {
+  id        String   @id @default(cuid())
+  ipHash    String   @unique
+  createdAt DateTime @default(now())
+}
