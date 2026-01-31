@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  PERSON
+  LLC
+  IE
+  OTHER
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum OtpChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum ShareDocType {
+  INVOICE
+  ACT
+}
+
+enum SubscriptionPlanCode {
+  BASIC_NO_CLIENTS
+  PRO_UNLIMITED
+  PAYG_5_5
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+enum PaymentProvider {
+  TBC
+}
+
+enum PaymentStatus {
+  CREATED
+  REDIRECT_REQUIRED
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  CANCELED
+  WAITING_CONFIRM
+}
+
+enum RevenueCheckStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  BYPASSED
+}
+
+model Tenant {
+  id            String      @id @default(cuid())
+  accountType   AccountType
+  regNumber     String      @unique // personal number / taxpayer id
+  name          String
+  legalAddress  String
+  email         String      @unique
+  phone         String      @unique
+  iban          String
+  isVatPayer    Boolean     @default(false)
+
+  // Revenue Service verification
+  revenueStatus     RevenueCheckStatus @default(PENDING)
+  revenueCheckedAt  DateTime?
+  revenueCheckedName String?
+  revenueCheckSource String?
+  revenueCheckError  String?
+
+  verificationLogs    RevenueVerificationLog[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  clients       Client[]
+  invoices      Invoice[]
+  acts          CompareAct[]
+  paymentIntents PaymentIntent[]
+  refreshTokens RefreshToken[]
+  otps          OtpCode[]
+  subscription  Subscription?
+  shareTokens   ShareToken[]
+}
+
+model RevenueLookupCache {
+  id          String            @id @default(cuid())
+  accountType AccountType
+  regNumber   String
+  name        String?
+  status      RevenueCheckStatus
+  raw         Json?
+  checkedAt   DateTime          @default(now())
+
+  @@unique([accountType, regNumber])
+  @@index([checkedAt])
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  taxPayerId  String
+  name        String
+  address     String?
+  email       String?
+  phone       String?
+  iban        String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoices    Invoice[]
+  acts        CompareAct[]
+
+  @@index([tenantId])
+  @@unique([tenantId, taxPayerId])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  invoiceNumber String
+  purpose       String
+  amountNet     Decimal   @db.Decimal(18, 2)
+  vatAmount     Decimal   @db.Decimal(18, 2)
+  amountGross   Decimal   @db.Decimal(18, 2)
+  currency      String    @default("GEL")
+
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime
+  status        DocStatus @default(DRAFT)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, invoiceNumber])
+}
+
+model CompareAct {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  actNumber   String
+  purpose     String
+  amount      Decimal   @db.Decimal(18, 2)
+  currency    String    @default("GEL")
+
+  issueDate   DateTime  @default(now())
+  dueDate     DateTime
+  status      DocStatus @default(DRAFT)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, actNumber])
+}
+
+model Subscription {
+  id          String               @id @default(cuid())
+  tenantId    String               @unique
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  planCode    SubscriptionPlanCode
+  status      SubscriptionStatus   @default(ACTIVE)
+  validFrom   DateTime
+  validTo     DateTime
+
+  invoicesUsed Int                @default(0)
+  actsUsed     Int                @default(0)
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model PaymentIntent {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  provider    PaymentProvider
+  planCode    SubscriptionPlanCode
+
+  amount      Decimal          @db.Decimal(18, 2)
+  currency    String           @default("GEL")
+
+  status      PaymentStatus    @default(CREATED)
+
+  // TBC-specific
+  payId       String?          @unique
+  approvalUrl String?
+
+  // raw callback payloads / debug
+  lastCallback Json?
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model FreeTrialIP {
+  id            String   @id @default(cuid())
+  ipHash        String   @unique
+  invoiceUsedAt DateTime?
+  actUsedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  identifier String
+  channel    OtpChannel
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdIp  String
+
+  createdAt  DateTime   @default(now())
+
+  @@index([identifier, channel])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  // NOTE: we use custom id (jti hex) so we can store/revoke by jti
+  id        String   @id
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdIp String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model ShareToken {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  docType   ShareDocType
+  docId     String
+  tokenHash String       @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdIp String?
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId, docType, docId])
+  @@index([expiresAt])
+}
+
+
+model AdminUser {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  passwordHash String
+
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+model RevenueVerificationLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status    RevenueCheckStatus
+  name      String?
+  note      String?
+  adminId   String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
