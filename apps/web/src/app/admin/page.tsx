@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { adminGet, adminPost, adminTokenStore } from "@/lib/adminFetch";
 
@@ -124,11 +124,13 @@ export default function AdminDashboardPage() {
     }
   }
 
-
   async function updateRevenue(tenantId: string) {
     setErr(null);
     try {
-      const status = window.prompt("Revenue status: VERIFIED / FAILED / BYPASSED / PENDING", "VERIFIED");
+      const status = window.prompt(
+        "Revenue status: VERIFIED / FAILED / BYPASSED / PENDING",
+        "VERIFIED"
+      );
       if (!status) return;
       const name = window.prompt("Verified name (optional)", "");
       const note = window.prompt("Note (optional)", "");
@@ -185,30 +187,40 @@ export default function AdminDashboardPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-xs text-slate-500">Platform</div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Admin Dashboard</h1>
-            <div className="mt-1 text-sm text-slate-600">Manage customers, subscriptions, and payments.</div>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+              Admin Dashboard
+            </h1>
+            <div className="mt-1 text-sm text-slate-600">
+              Manage customers, subscriptions, and payments.
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={load} disabled={loading}>
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
-            <Button variant="ghost" onClick={logout}>Logout</Button>
+            <Button variant="ghost" onClick={logout}>
+              Logout
+            </Button>
           </div>
         </div>
 
         {err && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{err}</div>
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {err}
+          </div>
         )}
 
         <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <input
-              className="h-11 w-full md:w-[360px] rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-slate-200"
+              className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-slate-200 md:w-[360px]"
               placeholder="Search tenants: name / regNumber / email / phone"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            <Button onClick={load} variant="outline">Search</Button>
+            <Button onClick={load} variant="outline">
+              Search
+            </Button>
 
             <div className="flex-1" />
 
@@ -233,8 +245,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 bg-slate-50 text-xs font-medium text-slate-600 grid grid-cols-12 gap-2">
+        {/* TENANTS */}
+        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="grid grid-cols-12 gap-2 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
             <div className="col-span-3">Tenant</div>
             <div className="col-span-2">Reg#</div>
             <div className="col-span-2">Created</div>
@@ -244,72 +257,123 @@ export default function AdminDashboardPage() {
           </div>
 
           {filtered.map((t) => (
-            <div key={t.id} className="px-4 py-3 border-t border-slate-100 grid grid-cols-12 gap-2 items-start">
-              <div className="col-span-3">
-                <div className="font-medium text-slate-900">{t.name}</div>
-                <div className="text-xs text-slate-500">{t.email} · {t.phone}</div>
-              </div>
-              <div className="col-span-2 text-sm text-slate-700">{t.regNumber}</div>
-              <div className="col-span-2 text-sm text-slate-700">{fmtDateTime(t.createdAt)}</div>
+            <Fragment key={t.id}>
+              <div className="grid grid-cols-12 gap-2 border-t border-slate-100 px-4 py-3">
+                <div className="col-span-3">
+                  <div className="font-medium text-slate-900">{t.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {t.email} · {t.phone}
+                  </div>
+                </div>
 
-              <div className="col-span-2 text-sm text-slate-700">
-                {t.subscription ? (
+                <div className="col-span-2 text-sm text-slate-700">{t.regNumber}</div>
+                <div className="col-span-2 text-sm text-slate-700">{fmtDateTime(t.createdAt)}</div>
+
+                {/* Revenue column */}
+                <div className="col-span-2 text-sm text-slate-700">
                   <div className="grid gap-1">
-                    <div><span className="text-slate-500">Plan:</span> <span className="font-medium">{t.subscription.planCode}</span></div>
-                    <div><span className="text-slate-500">Status:</span> {t.subscription.status}</div>
-                    <div><span className="text-slate-500">ValidTo:</span> {fmtDateTime(t.subscription.validTo)}</div>
-                    <div className="text-xs text-slate-500">Used: inv {t.subscription.invoicesUsed} · act {t.subscription.actsUsed}</div>
+                    <div className="font-medium">{t.revenueStatus || "PENDING"}</div>
+                    {t.revenueCheckedAt ? (
+                      <div className="text-xs text-slate-500">{fmtDateTime(t.revenueCheckedAt)}</div>
+                    ) : null}
+                    {t.revenueCheckedName ? (
+                      <div className="text-xs text-slate-500">{t.revenueCheckedName}</div>
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="text-slate-500">No subscription</div>
-                )}
+                </div>
+
+                {/* Subscription column */}
+                <div className="col-span-2 text-sm text-slate-700">
+                  {t.subscription ? (
+                    <div className="grid gap-1">
+                      <div>
+                        <span className="text-slate-500">Plan:</span>{" "}
+                        <span className="font-medium">{t.subscription.planCode}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Status:</span> {t.subscription.status}
+                      </div>
+                      <div>
+                        <span className="text-slate-500">ValidTo:</span>{" "}
+                        {fmtDateTime(t.subscription.validTo)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Used: inv {t.subscription.invoicesUsed} · act {t.subscription.actsUsed}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500">No subscription</div>
+                  )}
+                </div>
+
+                <div className="col-span-1 flex flex-col items-end gap-2">
+                  <Button onClick={() => setSub(t.id)}>Set Plan</Button>
+                  <Button variant="outline" onClick={() => updateRevenue(t.id)}>
+                    Revenue
+                  </Button>
+                  <Button variant="outline" onClick={() => loadRevenueLogs(t.id)}>
+                    {logsLoading[t.id]
+                      ? "Loading..."
+                      : selectedTenantId === t.id
+                      ? "Hide History"
+                      : "History"}
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => extendSub(t.id)}>
+                      Extend
+                    </Button>
+                    <Button variant="ghost" onClick={() => cancelSub(t.id)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               </div>
 
-              <div className="col-span-1 flex flex-col gap-2 items-end">
-                <Button onClick={() => setSub(t.id)}>Set Plan</Button>
-                <Button variant="outline" onClick={() => updateRevenue(t.id)}>Revenue</Button>
-                <Button variant="outline" onClick={() => loadRevenueLogs(t.id)}>
-                  {logsLoading[t.id] ? "Loading..." : (selectedTenantId === t.id ? "Hide History" : "History")}
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => extendSub(t.id)}>Extend</Button>
-                  <Button variant="ghost" onClick={() => cancelSub(t.id)}>Cancel</Button>
-                </div>
-              </div>
-            </div>
-              {selectedTenantId === t.id && (
-                <div className="col-span-12 -mt-1 mb-3 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-                  <div className="text-sm font-medium text-slate-900">Revenue Logs (last 50)</div>
-                  <div className="mt-2 grid gap-2">
-                    {(revenueLogs[t.id] && revenueLogs[t.id].length > 0) ? (
-                      revenueLogs[t.id].map((l) => (
-                        <div key={l.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{l.status}</span>
-                            <span className="text-xs text-slate-500">{fmtDateTime(l.createdAt)}</span>
-                            {l.name ? <span className="text-xs text-slate-600">| Name: {l.name}</span> : null}
+              {selectedTenantId === t.id ? (
+                <div className="px-4 pb-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
+                    <div className="text-sm font-medium text-slate-900">Revenue Logs (last 50)</div>
+                    <div className="mt-2 grid gap-2">
+                      {revenueLogs[t.id] && revenueLogs[t.id].length > 0 ? (
+                        revenueLogs[t.id].map((l) => (
+                          <div
+                            key={l.id}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{l.status}</span>
+                              <span className="text-xs text-slate-500">{fmtDateTime(l.createdAt)}</span>
+                              {l.name ? (
+                                <span className="text-xs text-slate-600">| Name: {l.name}</span>
+                              ) : null}
+                            </div>
+                            {l.note ? (
+                              <div className="mt-1 text-xs text-slate-600">Note: {l.note}</div>
+                            ) : null}
                           </div>
-                          {l.note ? <div className="mt-1 text-xs text-slate-600">Note: {l.note}</div> : null}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-slate-500">No logs yet.</div>
-                    )}
+                        ))
+                      ) : (
+                        <div className="text-sm text-slate-500">No logs yet.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+              ) : null}
+            </Fragment>
           ))}
 
-
-          {filtered.length === 0 && (
-            <div className="px-4 py-10 text-sm text-slate-500 text-center">No tenants.</div>
-          )}
+          {filtered.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-slate-500">No tenants.</div>
+          ) : null}
         </div>
 
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 bg-slate-50 text-xs font-medium text-slate-600">Recent Payments (last 200)</div>
-          <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-medium text-slate-600 border-t border-slate-100">
+        {/* PAYMENTS */}
+        <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+            Recent Payments (last 200)
+          </div>
+
+          <div className="grid grid-cols-12 gap-2 border-t border-slate-100 px-4 py-3 text-xs font-medium text-slate-600">
             <div className="col-span-3">Tenant</div>
             <div className="col-span-2">Plan</div>
             <div className="col-span-2">Amount</div>
@@ -318,44 +382,28 @@ export default function AdminDashboardPage() {
           </div>
 
           {payments.map((p) => (
-            <div key={p.id} className="grid grid-cols-12 gap-2 px-4 py-3 text-sm border-t border-slate-100">
+            <div
+              key={p.id}
+              className="grid grid-cols-12 gap-2 border-t border-slate-100 px-4 py-3 text-sm"
+            >
               <div className="col-span-3">
                 <div className="font-medium text-slate-900">{p.tenant?.name}</div>
-                <div className="text-xs text-slate-500">{p.tenant?.regNumber} · {p.tenant?.email}</div>
+                <div className="text-xs text-slate-500">
+                  {p.tenant?.regNumber} · {p.tenant?.email}
+                </div>
               </div>
               <div className="col-span-2 text-slate-700">{p.planCode}</div>
-              <div className="col-span-2 text-slate-700">{p.amount} {p.currency}</div>
+              <div className="col-span-2 text-slate-700">
+                {p.amount} {p.currency}
+              </div>
               <div className="col-span-2 text-slate-700">{p.status}</div>
               <div className="col-span-3 text-slate-700">{fmtDateTime(p.createdAt)}</div>
             </div>
-              {selectedTenantId === t.id && (
-                <div className="col-span-12 -mt-1 mb-3 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-                  <div className="text-sm font-medium text-slate-900">Revenue Logs (last 50)</div>
-                  <div className="mt-2 grid gap-2">
-                    {(revenueLogs[t.id] && revenueLogs[t.id].length > 0) ? (
-                      revenueLogs[t.id].map((l) => (
-                        <div key={l.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{l.status}</span>
-                            <span className="text-xs text-slate-500">{fmtDateTime(l.createdAt)}</span>
-                            {l.name ? <span className="text-xs text-slate-600">| Name: {l.name}</span> : null}
-                          </div>
-                          {l.note ? <div className="mt-1 text-xs text-slate-600">Note: {l.note}</div> : null}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-slate-500">No logs yet.</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           ))}
 
-
-          {payments.length === 0 && (
-            <div className="px-4 py-10 text-sm text-slate-500 text-center">No payments yet.</div>
-          )}
+          {payments.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-slate-500">No payments yet.</div>
+          ) : null}
         </div>
       </div>
     </div>
